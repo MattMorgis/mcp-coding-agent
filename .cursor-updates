@@ -3,3 +3,5 @@
 - Updated main.py to use the new InteractiveAgent class
 - Added unit tests for the InteractiveAgent
 - Moved system prompt to src/prompt.py and updated tests to match current implementation
+- Modified agent to require a repository path and added validation in main.py
+- Added repository path to agent system prompt for better context awareness

@@ -1,6 +1,9 @@
+import argparse
 import asyncio
 import contextlib
 import itertools
+import os
+import sys
 
 from src.agent import create_interactive_agent
 
@@ -28,12 +31,27 @@ async def spinner():
 
 
 async def main():
-    # Initialize the agent
-    agent, llm = await create_interactive_agent()
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description="CLI Coding Agent")
+    parser.add_argument("repo_path", help="Path to the local code repository")
+    args = parser.parse_args()
 
-    print("Welcome to the CLI Coding Agent!")
+    # Validate repository path
+    repo_path = os.path.abspath(args.repo_path)
+    if not os.path.exists(repo_path):
+        print(f"Error: Repository path '{repo_path}' does not exist.")
+        sys.exit(1)
+
+    if not os.path.isdir(repo_path):
+        print(f"Error: Repository path '{repo_path}' is not a directory.")
+        sys.exit(1)
+
+    # Initialize the agent
+    agent, llm = await create_interactive_agent(repo_path)
+
+    print("\nWelcome to the CLI Coding Agent!")
     print("Type 'exit' or 'quit' to end the conversation.\n")
-    print("\n")
+    print(f"Repository path: {repo_path}")
     print("What can I help you with today?")
 
     async with agent:
