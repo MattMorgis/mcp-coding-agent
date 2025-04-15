@@ -1,49 +1,63 @@
 import asyncio
+import contextlib
+import itertools
 
-from mcp_agent.agents.agent import Agent
-from mcp_agent.app import MCPApp
-from mcp_agent.workflows.llm.augmented_llm_anthropic import AnthropicAugmentedLLM
+from src.agent import create_interactive_agent
 
-app = MCPApp(name="interactive_cli_agent")
+
+async def spinner():
+    messages = ["Thinking...", "Ruminating...", "Generating..."]
+    message_idx = 0
+    spin_count = 0
+    for c in itertools.cycle(["|", "/", "-", "\\"]):
+        msg = messages[message_idx]
+        print(f"\r{msg} {c}", end="", flush=True)
+        try:
+            await asyncio.sleep(0.1)  # Fast spinner speed
+            spin_count += 1
+            if spin_count >= 20:  # Change message every 20 spins (about 2 seconds)
+                message_idx = (message_idx + 1) % len(messages)
+                spin_count = 0
+        except asyncio.CancelledError:
+            print(
+                "\r" + " " * (max(len(m) for m in messages) + 2) + "\r",
+                end="",
+                flush=True,
+            )  # Clear line
+            break
 
 
 async def main():
-    async with app.run() as agent_app:
-        logger = agent_app.logger
+    # Initialize the agent
+    agent, llm = await create_interactive_agent()
 
-        # Create the agent with a basic instruction
-        cli_agent = Agent(
-            name="cli_assistant",
-            instruction="""You are a helpful assistant.
-            Be concise and direct in your responses.
-            Maintain context throughout the conversation.
-            Answer users' questions to the best of your ability.""",
-            server_names=[],  # No servers needed for this simple example
-        )
+    print("Welcome to the CLI Coding Agent!")
+    print("Type 'exit' or 'quit' to end the conversation.\n")
+    print("\n")
+    print("What can I help you with today?")
 
-        logger.info("Interactive CLI Agent started")
-        print("Welcome to the Interactive CLI Agent!")
-        print("Type 'exit' or 'quit' to end the conversation.\n")
+    async with agent:
+        # Interactive loop
+        while True:
+            # Get user input
+            user_input = input("\nYou: ")
 
-        async with cli_agent:
-            # Attach an LLM to the agent
-            llm = await cli_agent.attach_llm(AnthropicAugmentedLLM)
+            # Check for exit command
+            if user_input.lower() in ["exit", "quit", "bye"]:
+                print("\nGoodbye!")
+                break
 
-            # Interactive loop
-            while True:
-                # Get user input
-                user_input = input("\nYou: ")
-
-                # Check for exit command
-                if user_input.lower() in ["exit", "quit", "bye"]:
-                    print("\nGoodbye!")
-                    break
-
-                # Generate response
+            # Generate response
+            spinner_task = asyncio.create_task(spinner())
+            try:
                 response = await llm.generate_str(message=user_input)
+            finally:
+                spinner_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await spinner_task
 
-                # Print the response
-                print(f"\nAgent: {response}")
+            # Print the response
+            print(f"\nAgent: {response}")
 
 
 if __name__ == "__main__":

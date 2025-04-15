@@ -12,3 +12,15 @@ logger:
 # Using Anthropic for this simple example
 anthropic:
   default_model: claude-3-7-sonnet-20250219
+
+mcp:
+  servers:
+    # File system server for accessing local files
+    file:
+      command: "npx"
+      args:
+        [
+          "-y",
+          "@modelcontextprotocol/server-filesystem",
+          "/Users/matt/Developer",
+        ]

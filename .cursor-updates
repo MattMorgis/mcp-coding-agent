@@ -1,0 +1,4 @@
+- Refactored agent functionality from main.py to src/agent.py
+- Created InteractiveAgent class to encapsulate agent logic
+- Updated main.py to use the new InteractiveAgent class
+- Added unit tests for the InteractiveAgent
