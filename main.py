@@ -10,21 +10,20 @@ app = MCPApp(name="interactive_cli_agent")
 async def main():
     async with app.run() as agent_app:
         logger = agent_app.logger
-        context = agent_app.context
-
-        logger.info("Interactive CLI Agent started")
-        print("Welcome to the Interactive CLI Agent!")
-        print("Type 'exit' or 'quit' to end the conversation.\n")
 
         # Create the agent with a basic instruction
         cli_agent = Agent(
             name="cli_assistant",
-            instruction="""You are a helpful CLI assistant.
+            instruction="""You are a helpful assistant.
             Be concise and direct in your responses.
             Maintain context throughout the conversation.
             Answer users' questions to the best of your ability.""",
             server_names=[],  # No servers needed for this simple example
         )
+
+        logger.info("Interactive CLI Agent started")
+        print("Welcome to the Interactive CLI Agent!")
+        print("Type 'exit' or 'quit' to end the conversation.\n")
 
         async with cli_agent:
             # Attach an LLM to the agent
