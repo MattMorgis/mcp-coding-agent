@@ -1,0 +1,10 @@
+$schema: ../../schema/mcp-agent.config.schema.json
+
+execution_engine: asyncio
+logger:
+  type: console
+  level: info
+
+# Using Anthropic for this simple example
+anthropic:
+  default_model: claude-3-7-sonnet-20250219
