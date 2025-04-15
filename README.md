@@ -1,6 +1,6 @@
-# Simple CLI Agent
+# Coding CLI Agent
 
-A simple CLI-based agent built with the mcp-agent framework.
+A simple CLI-based coding agent built with the mcp-agent framework.
 
 ## Setup
 
@@ -17,8 +17,10 @@ A simple CLI-based agent built with the mcp-agent framework.
 
 ## Usage
 
-Run the agent
+Run the agent with a repository URL:
 
 ```
-uv run main.py
+uv run main.py /Users/matt/Developer/mcp/prismatic
 ```
+
+The repository URL provided must match the filesystem server path configured in `mcp_agent.config.yaml`.
