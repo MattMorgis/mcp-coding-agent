@@ -2,6 +2,8 @@ from mcp_agent.agents.agent import Agent
 from mcp_agent.app import MCPApp
 from mcp_agent.workflows.llm.augmented_llm_anthropic import AnthropicAugmentedLLM
 
+from .prompt import AGENT_SYSTEM_PROMPT
+
 
 async def create_interactive_agent(name="interactive_cli_agent"):
     """Create and initialize an MCP agent with Anthropic LLM.
@@ -14,10 +16,7 @@ async def create_interactive_agent(name="interactive_cli_agent"):
         # Create the agent with a basic instruction
         agent = Agent(
             name="cli_assistant",
-            instruction="""You are a helpful assistant.
-            Be concise and direct in your responses.
-            Maintain context throughout the conversation.
-            Answer users' questions to the best of your ability.""",
+            instruction=AGENT_SYSTEM_PROMPT,
             server_names=["file"],
         )
 

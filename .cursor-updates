@@ -2,3 +2,4 @@
 - Created InteractiveAgent class to encapsulate agent logic
 - Updated main.py to use the new InteractiveAgent class
 - Added unit tests for the InteractiveAgent
+- Moved system prompt to src/prompt.py and updated tests to match current implementation
