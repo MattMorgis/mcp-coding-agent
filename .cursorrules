@@ -1,37 +1,6 @@
 ### Project Overview
 
-This is a Python-based RAG demo using the BioASQ dataset for biomedical question answering. The system retrieves relevant PubMed abstracts for a given biomedical question and generates accurate, evidence-based answers.
-
-### Project Structure
-
-The project is organized into modular components, each handling a specific part of the RAG pipeline:
-
-1. **Data Acquisition**: Handles downloading and processing PubMed abstracts referenced in the BioASQ dataset
-   - Extracts PubMed URLs from BioASQ questions
-   - Downloads abstracts using the NCBI E-utilities API
-   - Processes and stores the abstracts for later use in the RAG pipeline
-
-### Module Structure and Imports
-
-Each module follows a consistent structure:
-
-```
-module_name/
-├── main.py           # Entry point for the module
-├── models/           # Data models
-├── src/              # Source code
-│   ├── routes.py     # API routes
-│   └── ...           # Other module-specific code
-└── tests/            # Tests for the module
-```
-
-Import rules:
-
-1. DO NOT use absolute imports that reference the project name (e.g., `from project_name.module.file`)
-2. Use absolute imports from the module's root directory
-   - If you are in `indexing_pipeline/src/client/some_client.py` and want to import `indexing_pipeline/src/models/some_model.py`, use `from src.models.some_model import X`
-   - Imports should always be absolute paths starting from the module directory, not the project root
-3. NO **init**.py FILES should be created to enforce these import patterns
+This is a Python-based project
 
 ### Package Management
 
@@ -50,7 +19,7 @@ Example: `uv run data_acquisition/main.py --email your.email@example.com`
 
 # Run tests for a specific module
 
-uv run pytest <module_directory>
+uv run pytest
 
 ### Test Fixtures
 
