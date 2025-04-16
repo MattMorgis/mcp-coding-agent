@@ -17,6 +17,7 @@ from anthropic.types import (
 from mcp.types import (
     CallToolRequest,
     CallToolRequestParams,
+    CallToolResult,
     EmbeddedResource,
     ImageContent,
     ModelPreferences,
@@ -238,6 +239,33 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
                                 tool_use_id, result.content, result.isError
                             )
 
+                        # Handle large tool responses gracefully
+                        modified_result = result
+                        if tool_name == "file-directory_tree" and not result.isError:
+                            try:
+                                # Check if the result is too large
+                                result_size = len(str(result.content))
+                                if result_size > 500000:  # Set a reasonable threshold
+                                    self.logger.warning(
+                                        f"Tool result is very large: {result_size} characters"
+                                    )
+                                    # Create a truncated version of the result
+                                    truncated_message = (
+                                        "The directory tree is quite large. I'll provide a summary instead. "
+                                        "Consider using list_directory for specific subdirectories."
+                                    )
+                                    modified_result = CallToolResult(
+                                        isError=False,
+                                        content=[
+                                            TextContent(
+                                                type="text",
+                                                text=truncated_message,
+                                            )
+                                        ],
+                                    )
+                            except Exception as e:
+                                self.logger.error(f"Error handling large result: {e}")
+
                         messages.append(
                             MessageParam(
                                 role="user",
@@ -245,8 +273,8 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
                                     ToolResultBlockParam(
                                         type="tool_result",
                                         tool_use_id=tool_use_id,
-                                        content=result.content,
-                                        is_error=result.isError,
+                                        content=modified_result.content,
+                                        is_error=modified_result.isError,
                                     )
                                 ],
                             )
