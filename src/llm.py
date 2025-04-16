@@ -84,6 +84,7 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         message,
         request_params: RequestParams | None = None,
         on_message=None,
+        on_tool_call=None,
     ):
         """
         Process a query using an LLM and available tools.
@@ -96,6 +97,8 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
             on_message: Optional callback function that will be called with each new message.
                         Signature: (message_type, message_content) where message_type is one of
                         'llm_response' or 'tool_result'
+            on_tool_call: Optional callback function that will be called when a tool is called.
+                          Signature: (tool_name, tool_args, tool_use_id)
         """
         config = self.context.config
         anthropic = Anthropic(api_key=config.anthropic.api_key)
@@ -189,6 +192,10 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
                         tool_args = content.input
                         tool_use_id = content.id
 
+                        # Call the on_tool_call callback if provided
+                        if on_tool_call:
+                            await on_tool_call(tool_name, tool_args, tool_use_id)
+
                         # TODO -- productionize this
                         # if tool_name == HUMAN_INPUT_TOOL_NAME:
                         #     # Get the message from the content list
@@ -248,6 +255,7 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         message,
         request_params: RequestParams | None = None,
         on_message=None,
+        on_tool_call=None,
     ) -> str:
         """
         Process a query using an LLM and available tools.
@@ -258,6 +266,7 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
             message=message,
             request_params=request_params,
             on_message=on_message,
+            on_tool_call=on_tool_call,
         )
 
         final_text: List[str] = []
@@ -279,6 +288,7 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         response_model: Type[ModelT],
         request_params: RequestParams | None = None,
         on_message=None,
+        on_tool_call=None,
     ) -> ModelT:
         # First we invoke the LLM to generate a string response
         # We need to do this in a two-step process because Instructor doesn't
@@ -290,6 +300,7 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
             message=message,
             request_params=request_params,
             on_message=on_message,
+            on_tool_call=on_tool_call,
         )
 
         # Next we pass the text through instructor to extract structured data
