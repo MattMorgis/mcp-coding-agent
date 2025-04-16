@@ -136,7 +136,7 @@ async def main():
             # Generate response
             spinner_task = asyncio.create_task(spinner())
             try:
-                response = await llm.generate(
+                await llm.generate(
                     message=user_input,
                     request_params=RequestParams(
                         max_iterations=25,
@@ -153,9 +153,6 @@ async def main():
 
             # Add a separator after the response
             print("\n" + "-" * 50)
-
-            # Remove the final response print to avoid duplication
-            # The content has already been printed by the on_message_callback
 
 
 if __name__ == "__main__":
