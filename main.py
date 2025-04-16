@@ -12,24 +12,16 @@ from src.agent import create_interactive_agent
 
 
 async def spinner():
-    messages = ["Thinking...", "Ruminating...", "Generating..."]
+    messages = ["Thinking", "Thinking.", "Thinking..", "Thinking..."]
     message_idx = 0
-    spin_count = 0
-    for c in itertools.cycle(["|", "/", "-", "\\"]):
+    for _ in itertools.cycle(range(4)):
         msg = messages[message_idx]
-        print(f"\r{msg} {c}", end="", flush=True)
+        print(f"\r{msg}", end="", flush=True)
         try:
-            await asyncio.sleep(0.1)  # Fast spinner speed
-            spin_count += 1
-            if spin_count >= 20:  # Change message every 20 spins (about 2 seconds)
-                message_idx = (message_idx + 1) % len(messages)
-                spin_count = 0
+            await asyncio.sleep(0.3)  # Slower, less distracting spinner
+            message_idx = (message_idx + 1) % len(messages)
         except asyncio.CancelledError:
-            print(
-                "\r" + " " * (max(len(m) for m in messages) + 2) + "\r",
-                end="",
-                flush=True,
-            )  # Clear line
+            print("\r" + " " * 20 + "\r", end="", flush=True)  # Clear line
             break
 
 
@@ -45,8 +37,14 @@ async def on_message_callback(message_type, message_content):
         if iteration_text:
             # Clear the spinner line and print the iteration
             print("\r" + " " * 50 + "\r", end="", flush=True)
-            print("".join(iteration_text))
-            print("\nThinking...", end="", flush=True)
+            print("💭 " + "".join(iteration_text))
+            # Only show "Thinking..." for intermediate steps, not final responses
+            if message_content.stop_reason not in [
+                "end_turn",
+                "stop_sequence",
+                "max_tokens",
+            ]:
+                print("\nThinking...", end="", flush=True)
 
 
 async def on_tool_call_callback(tool_name, tool_args, tool_use_id):
@@ -60,8 +58,13 @@ async def on_tool_call_callback(tool_name, tool_args, tool_use_id):
     # Clear spinner line and print tool usage info
     print("\r" + " " * 50 + "\r", end="", flush=True)
     print(f"\n🔧 Using tool: {tool_name}", flush=True)
-    print(f"Args: {formatted_args}", flush=True)
-    print(f"ID: {tool_use_id}", flush=True)
+
+    # Only print args if they're not too long
+    if len(formatted_args) < 200:
+        print(f"Args: {formatted_args}", flush=True)
+    else:
+        print(f"Args: {formatted_args[:197]}...", flush=True)
+
     print("\nThinking...", end="", flush=True)
 
 
@@ -78,18 +81,16 @@ async def on_tool_result_callback(tool_use_id, result, is_error):
 
     # Determine status icon based on whether there was an error
     status_icon = "❌" if is_error else "✅"
-    status_text = "ERROR" if is_error else "SUCCESS"
 
     # Clear spinner line and print tool result info
     print("\r" + " " * 50 + "\r", end="", flush=True)
-    print(f"\n{status_icon} Tool result ({status_text}):", flush=True)
-    print(f"Tool ID: {tool_use_id}", flush=True)
+    print(f"\n{status_icon} Tool result:", flush=True)
 
     # Limit the length of the output if it's very long
-    if len(formatted_result) > 100:
-        print(f"Result: {formatted_result[:100]}...(truncated)", flush=True)
+    if len(formatted_result) > 150:
+        print(f"{formatted_result[:147]}...(truncated)", flush=True)
     else:
-        print(f"Result: {formatted_result}", flush=True)
+        print(f"{formatted_result}", flush=True)
 
     print("\nThinking...", end="", flush=True)
 
@@ -129,10 +130,13 @@ async def main():
                 print("\nGoodbye!")
                 break
 
+            # Add a separator between conversations for clarity
+            print("\n" + "-" * 50)
+
             # Generate response
             spinner_task = asyncio.create_task(spinner())
             try:
-                response = await llm.generate_str(
+                response = await llm.generate(
                     message=user_input,
                     request_params=RequestParams(
                         max_iterations=25,
@@ -147,8 +151,11 @@ async def main():
                 with contextlib.suppress(asyncio.CancelledError):
                     await spinner_task
 
-            # Print the response
-            print(f"\nAgent: {response}")
+            # Add a separator after the response
+            print("\n" + "-" * 50)
+
+            # Remove the final response print to avoid duplication
+            # The content has already been printed by the on_message_callback
 
 
 if __name__ == "__main__":
