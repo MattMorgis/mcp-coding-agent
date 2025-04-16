@@ -32,6 +32,23 @@ async def spinner():
             break
 
 
+async def on_message_callback(message_type, message_content):
+    """Callback function that prints each message as it's generated"""
+    if message_type == "llm_response":
+        # Extract text content from the message
+        iteration_text = []
+        for content in message_content.content:
+            if content.type == "text":
+                iteration_text.append(content.text)
+
+        if iteration_text:
+            # Clear the spinner line and print the iteration
+            print("\r" + " " * 50 + "\r", end="", flush=True)
+            print("\nIteration output:", flush=True)
+            print("".join(iteration_text))
+            print("\nThinking...", end="", flush=True)
+
+
 async def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description="CLI Coding Agent")
@@ -76,6 +93,7 @@ async def main():
                         max_iterations=25,
                         maxTokens=10000,
                     ),
+                    on_message=on_message_callback,
                 )
             finally:
                 spinner_task.cancel()
