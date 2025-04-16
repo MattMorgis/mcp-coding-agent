@@ -83,11 +83,19 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         self,
         message,
         request_params: RequestParams | None = None,
+        on_message=None,
     ):
         """
         Process a query using an LLM and available tools.
         The default implementation uses Claude as the LLM.
         Override this method to use a different LLM.
+
+        Args:
+            message: The message to send to the LLM
+            request_params: Optional parameters for the request
+            on_message: Optional callback function that will be called with each new message.
+                        Signature: (message_type, message_content) where message_type is one of
+                        'llm_response' or 'tool_result'
         """
         config = self.context.config
         anthropic = Anthropic(api_key=config.anthropic.api_key)
@@ -151,6 +159,10 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
             response_as_message = self.convert_message_to_message_param(response)
             messages.append(response_as_message)
             responses.append(response)
+
+            # Call the on_message callback with the LLM response
+            if on_message:
+                await on_message("llm_response", response)
 
             if response.stop_reason == "end_turn":
                 self.logger.debug(
@@ -235,6 +247,7 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         self,
         message,
         request_params: RequestParams | None = None,
+        on_message=None,
     ) -> str:
         """
         Process a query using an LLM and available tools.
@@ -244,6 +257,7 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         responses: List[Message] = await self.generate(
             message=message,
             request_params=request_params,
+            on_message=on_message,
         )
 
         final_text: List[str] = []
@@ -264,6 +278,7 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         message,
         response_model: Type[ModelT],
         request_params: RequestParams | None = None,
+        on_message=None,
     ) -> ModelT:
         # First we invoke the LLM to generate a string response
         # We need to do this in a two-step process because Instructor doesn't
@@ -274,6 +289,7 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         response = await self.generate_str(
             message=message,
             request_params=request_params,
+            on_message=on_message,
         )
 
         # Next we pass the text through instructor to extract structured data
