@@ -83,24 +83,11 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         self,
         message,
         request_params: RequestParams | None = None,
-        on_iteration_complete=None,
-        on_tool_use=None,
-        on_tool_result=None,
     ):
         """
         Process a query using an LLM and available tools.
         The default implementation uses Claude as the LLM.
         Override this method to use a different LLM.
-        
-        Args:
-            message: The message to send to the LLM
-            request_params: Optional parameters for the request
-            on_iteration_complete: Callback function called after each LLM response
-                with (iteration_index, llm_response, tool_results_so_far)
-            on_tool_use: Callback function called when a tool is about to be used
-                with (tool_name, tool_args, tool_use_id)
-            on_tool_result: Callback function called after a tool returns results
-                with (tool_name, tool_args, tool_result, tool_use_id)
         """
         config = self.context.config
         anthropic = Anthropic(api_key=config.anthropic.api_key)
@@ -128,20 +115,9 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         ]
 
         responses: List[Message] = []
-        tool_results = []
         model = await self.select_model(params)
 
         for i in range(params.max_iterations):
-            if i == params.max_iterations - 1 and responses and responses[-1].stop_reason == "tool_use":
-                final_prompt_message = MessageParam(
-                    role="user",
-                    content="We've reached the maximum number of iterations. "
-                    "Please stop using tools now and provide your final comprehensive answer based on all tool results so far."
-                    "At the beginning of your response, clearly indicate that your answer may be incomplete due to reaching "
-                    "the maximum number of tool usage iterations.",
-                )
-                messages.append(final_prompt_message)
-
             arguments = {
                 "model": model,
                 "max_tokens": params.maxTokens,
@@ -176,13 +152,6 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
             messages.append(response_as_message)
             responses.append(response)
 
-            # Call the iteration complete callback with the current state
-            if on_iteration_complete:
-                await on_iteration_complete(i, response, tool_results.copy())
-
-            # Only reset tool_results after the callback has been called
-            tool_results = []  
-
             if response.stop_reason == "end_turn":
                 self.logger.debug(
                     f"Iteration {i}: Stopping because finish_reason is 'end_turn'"
@@ -208,9 +177,27 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
                         tool_args = content.input
                         tool_use_id = content.id
 
-                        # Notify about the tool use
-                        if on_tool_use:
-                            await on_tool_use(tool_name, tool_args, tool_use_id)
+                        # TODO -- productionize this
+                        # if tool_name == HUMAN_INPUT_TOOL_NAME:
+                        #     # Get the message from the content list
+                        #     message_text = ""
+                        #     for block in response_as_message["content"]:
+                        #         if (
+                        #             isinstance(block, dict)
+                        #             and block.get("type") == "text"
+                        #         ):
+                        #             message_text += block.get("text", "")
+                        #         elif hasattr(block, "type") and block.type == "text":
+                        #             message_text += block.text
+
+                        # panel = Panel(
+                        #     message_text,
+                        #     title="MESSAGE",
+                        #     style="green",
+                        #     border_style="bold white",
+                        #     padding=(1, 2),
+                        # )
+                        # console.console.print(panel)
 
                         tool_call_request = CallToolRequest(
                             method="tools/call",
@@ -222,27 +209,20 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
                         result = await self.call_tool(
                             request=tool_call_request, tool_call_id=tool_use_id
                         )
-                        
-                        # Add to the tool results list for the next iteration's callback
-                        tool_results.append((tool_name, tool_args, result, tool_use_id))
-                        
-                        # Notify about the tool result
-                        if on_tool_result:
-                            await on_tool_result(tool_name, tool_args, result, tool_use_id)
 
-                        # Convert the result to a message and add to the conversation
-                        tool_result_message = MessageParam(
-                            role="user",
-                            content=[
-                                ToolResultBlockParam(
-                                    type="tool_result",
-                                    tool_use_id=tool_use_id,
-                                    content=result.content,
-                                    is_error=result.isError,
-                                )
-                            ],
+                        messages.append(
+                            MessageParam(
+                                role="user",
+                                content=[
+                                    ToolResultBlockParam(
+                                        type="tool_result",
+                                        tool_use_id=tool_use_id,
+                                        content=result.content,
+                                        is_error=result.isError,
+                                    )
+                                ],
+                            )
                         )
-                        messages.append(tool_result_message)
 
         if params.use_history:
             self.history.set(messages)
@@ -255,59 +235,19 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         self,
         message,
         request_params: RequestParams | None = None,
-        on_new_text=None,  # Callback for getting text updates
     ) -> str:
         """
-        Process a query using an LLM and available tools and return the final string result.
-        Optionally provides streaming updates via the on_new_text callback.
-        
-        Args:
-            message: The message to send to the LLM
-            request_params: Optional parameters for the request
-            on_new_text: Callback function that will be called with string updates
-                as they become available
-                
-        Returns:
-            The complete string response
+        Process a query using an LLM and available tools.
+        The default implementation uses Claude as the LLM.
+        Override this method to use a different LLM.
         """
-        final_text: List[str] = []
-        
-        # Define callbacks for streaming
-        async def handle_iteration(iteration, response, tool_results):
-            chunk_text = []
-            for content in response.content:
-                if content.type == "text":
-                    chunk_text.append(content.text)
-            
-            if chunk_text and on_new_text:
-                await on_new_text("\n".join(chunk_text), "llm_response")
-        
-        async def handle_tool_use(tool_name, tool_args, tool_use_id):
-            if on_new_text:
-                tool_text = f"[Calling tool {tool_name} with args {json.dumps(tool_args, indent=2)}]"
-                await on_new_text(tool_text, "tool_use")
-        
-        async def handle_tool_result(tool_name, tool_args, result, tool_use_id):
-            if on_new_text:
-                # Extract text from tool result
-                result_text = []
-                for content in result.content:
-                    if hasattr(content, "text"):
-                        result_text.append(content.text)
-                
-                tool_result_str = f"[Tool {tool_name} returned: {' '.join(result_text)}]"
-                await on_new_text(tool_result_str, "tool_result")
-        
-        # Call generate with our streaming callbacks
         responses: List[Message] = await self.generate(
             message=message,
             request_params=request_params,
-            on_iteration_complete=handle_iteration,
-            on_tool_use=handle_tool_use,
-            on_tool_result=handle_tool_result,
         )
 
-        # Collect the complete response
+        final_text: List[str] = []
+
         for response in responses:
             for content in response.content:
                 if content.type == "text":
@@ -324,7 +264,6 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         message,
         response_model: Type[ModelT],
         request_params: RequestParams | None = None,
-        on_new_text=None,  # Pass through the streaming capability
     ) -> ModelT:
         # First we invoke the LLM to generate a string response
         # We need to do this in a two-step process because Instructor doesn't
@@ -335,7 +274,6 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         response = await self.generate_str(
             message=message,
             request_params=request_params,
-            on_new_text=on_new_text,  # Pass through the streaming capability
         )
 
         # Next we pass the text through instructor to extract structured data
