@@ -45,7 +45,6 @@ async def on_message_callback(message_type, message_content):
         if iteration_text:
             # Clear the spinner line and print the iteration
             print("\r" + " " * 50 + "\r", end="", flush=True)
-            print("\nIteration output:", flush=True)
             print("".join(iteration_text))
             print("\nThinking...", end="", flush=True)
 
@@ -87,8 +86,8 @@ async def on_tool_result_callback(tool_use_id, result, is_error):
     print(f"Tool ID: {tool_use_id}", flush=True)
 
     # Limit the length of the output if it's very long
-    if len(formatted_result) > 1000:
-        print(f"Result: {formatted_result[:1000]}...(truncated)", flush=True)
+    if len(formatted_result) > 100:
+        print(f"Result: {formatted_result[:100]}...(truncated)", flush=True)
     else:
         print(f"Result: {formatted_result}", flush=True)
 
@@ -137,10 +136,11 @@ async def main():
                     message=user_input,
                     request_params=RequestParams(
                         max_iterations=25,
-                        maxTokens=25000,
+                        maxTokens=15000,
                     ),
                     on_message=on_message_callback,
                     on_tool_call=on_tool_call_callback,
+                    on_tool_result=on_tool_result_callback,
                 )
             finally:
                 spinner_task.cancel()
