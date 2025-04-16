@@ -68,7 +68,9 @@ async def main():
             # Generate response
             spinner_task = asyncio.create_task(spinner())
             try:
-                response = await llm.generate_str(message=user_input)
+                response = await llm.generate_str(
+                    message=user_input, max_iterations=25, maxTokens=10000
+                )
             finally:
                 spinner_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
