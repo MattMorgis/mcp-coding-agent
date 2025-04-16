@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import contextlib
 import itertools
+import json
 import os
 import sys
 
@@ -49,6 +50,51 @@ async def on_message_callback(message_type, message_content):
             print("\nThinking...", end="", flush=True)
 
 
+async def on_tool_call_callback(tool_name, tool_args, tool_use_id):
+    """Callback function that prints information about tool usage"""
+    # Format tool arguments for better readability
+    if isinstance(tool_args, dict):
+        formatted_args = json.dumps(tool_args, indent=2)
+    else:
+        formatted_args = str(tool_args)
+
+    # Clear spinner line and print tool usage info
+    print("\r" + " " * 50 + "\r", end="", flush=True)
+    print(f"\n🔧 Using tool: {tool_name}", flush=True)
+    print(f"Args: {formatted_args}", flush=True)
+    print(f"ID: {tool_use_id}", flush=True)
+    print("\nThinking...", end="", flush=True)
+
+
+async def on_tool_result_callback(tool_use_id, result, is_error):
+    """Callback function that prints the results from tool calls"""
+    # Format the result for better readability
+    if isinstance(result, dict):
+        try:
+            formatted_result = json.dumps(result, indent=2)
+        except (TypeError, ValueError):
+            formatted_result = str(result)
+    else:
+        formatted_result = str(result)
+
+    # Determine status icon based on whether there was an error
+    status_icon = "❌" if is_error else "✅"
+    status_text = "ERROR" if is_error else "SUCCESS"
+
+    # Clear spinner line and print tool result info
+    print("\r" + " " * 50 + "\r", end="", flush=True)
+    print(f"\n{status_icon} Tool result ({status_text}):", flush=True)
+    print(f"Tool ID: {tool_use_id}", flush=True)
+
+    # Limit the length of the output if it's very long
+    if len(formatted_result) > 1000:
+        print(f"Result: {formatted_result[:1000]}...(truncated)", flush=True)
+    else:
+        print(f"Result: {formatted_result}", flush=True)
+
+    print("\nThinking...", end="", flush=True)
+
+
 async def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description="CLI Coding Agent")
@@ -94,6 +140,8 @@ async def main():
                         maxTokens=10000,
                     ),
                     on_message=on_message_callback,
+                    on_tool_call=on_tool_call_callback,
+                    on_tool_result=on_tool_result_callback,
                 )
             finally:
                 spinner_task.cancel()
