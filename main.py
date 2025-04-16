@@ -5,6 +5,8 @@ import itertools
 import os
 import sys
 
+from mcp_agent.workflows.llm.augmented_llm import RequestParams
+
 from src.agent import create_interactive_agent
 
 
@@ -69,7 +71,11 @@ async def main():
             spinner_task = asyncio.create_task(spinner())
             try:
                 response = await llm.generate_str(
-                    message=user_input, max_iterations=25, maxTokens=10000
+                    message=user_input,
+                    request_params=RequestParams(
+                        max_iterations=25,
+                        maxTokens=10000,
+                    ),
                 )
             finally:
                 spinner_task.cancel()
