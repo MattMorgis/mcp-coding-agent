@@ -137,11 +137,10 @@ async def main():
                     message=user_input,
                     request_params=RequestParams(
                         max_iterations=25,
-                        maxTokens=10000,
+                        maxTokens=25000,
                     ),
                     on_message=on_message_callback,
                     on_tool_call=on_tool_call_callback,
-                    on_tool_result=on_tool_result_callback,
                 )
             finally:
                 spinner_task.cancel()
