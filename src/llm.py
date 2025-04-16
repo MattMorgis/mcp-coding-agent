@@ -1,7 +1,9 @@
+import asyncio
 import json
+import random
 from typing import Iterable, List, Type
 
-from anthropic import Anthropic
+from anthropic import Anthropic, RateLimitError
 from anthropic.types import (
     ContentBlock,
     DocumentBlockParam,
@@ -148,9 +150,29 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
             self.logger.debug(f"{arguments}")
             self._log_chat_progress(chat_turn=(len(messages) + 1) // 2, model=model)
 
-            executor_result = await self.executor.execute(
-                anthropic.messages.create, **arguments
-            )
+            # Implement exponential backoff retry logic
+            max_retries = 5
+            base_delay = 1  # starting delay of 1 second
+            for retry in range(max_retries):
+                try:
+                    executor_result = await self.executor.execute(
+                        anthropic.messages.create, **arguments
+                    )
+                    break  # If successful, break out of the retry loop
+                except RateLimitError as e:
+                    if retry == max_retries - 1:  # If this was the last retry
+                        self.logger.error(
+                            f"Rate limit error after {max_retries} retries: {e}"
+                        )
+                        executor_result = [e]  # Pass the error to be handled below
+                        break
+
+                    # Exponential backoff with jitter
+                    delay = base_delay * (2**retry) + random.uniform(0, 1)
+                    self.logger.warning(
+                        f"Rate limit hit, retrying in {delay:.2f} seconds (attempt {retry + 1}/{max_retries})"
+                    )
+                    await asyncio.sleep(delay)
 
             response = executor_result[0]
 
@@ -353,14 +375,42 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         model = await self.select_model(params)
 
         # Extract structured data from natural language
-        structured_response = client.chat.completions.create(
-            model=model,
-            response_model=response_model,
-            messages=[{"role": "user", "content": response}],
-            max_tokens=params.maxTokens,
-        )
+        # Implement retry logic for the structured extraction as well
+        max_retries = 5
+        base_delay = 1
+        last_exception = None
 
-        return structured_response
+        for retry in range(max_retries):
+            try:
+                structured_response = client.chat.completions.create(
+                    model=model,
+                    response_model=response_model,
+                    messages=[{"role": "user", "content": response}],
+                    max_tokens=params.maxTokens,
+                )
+                return structured_response
+            except RateLimitError as e:
+                last_exception = e
+                if retry == max_retries - 1:  # If this was the last retry
+                    self.logger.error(
+                        f"Rate limit error after {max_retries} retries: {e}"
+                    )
+                    break
+
+                # Exponential backoff with jitter
+                delay = base_delay * (2**retry) + random.uniform(0, 1)
+                self.logger.warning(
+                    f"Rate limit hit during structured extraction, retrying in {delay:.2f} seconds (attempt {retry + 1}/{max_retries})"
+                )
+                await asyncio.sleep(delay)
+
+        if last_exception:
+            raise last_exception
+
+        # This should never be reached, but just in case
+        raise RuntimeError(
+            "Failed to create structured response after multiple retries"
+        )
 
     @classmethod
     def convert_message_to_message_param(
