@@ -111,48 +111,48 @@ async def main():
         print(f"Error: Repository path '{repo_path}' is not a directory.")
         sys.exit(1)
 
-    # Initialize the agent
-    agent, llm = await create_interactive_agent(repo_path)
+    # Initialize the agent within the running MCP application
+    async with create_interactive_agent(repo_path) as (agent, llm):
 
-    print("\nWelcome to the CLI Coding Agent!")
-    print("Type 'exit' or 'quit' to end the conversation.\n")
-    print(f"Repository path: {repo_path}")
-    print("What can I help you with today?")
+        print("\nWelcome to the CLI Coding Agent!")
+        print("Type 'exit' or 'quit' to end the conversation.\n")
+        print(f"Repository path: {repo_path}")
+        print("What can I help you with today?")
 
-    async with agent:
-        # Interactive loop
-        while True:
-            # Get user input
-            user_input = input("\nYou: ")
+        async with agent:
+            # Interactive loop
+            while True:
+                # Get user input
+                user_input = input("\nYou: ")
 
-            # Check for exit command
-            if user_input.lower() in ["exit", "quit", "bye"]:
-                print("\nGoodbye!")
-                break
+                # Check for exit command
+                if user_input.lower() in ["exit", "quit", "bye"]:
+                    print("\nGoodbye!")
+                    break
 
-            # Add a separator between conversations for clarity
-            print("\n" + "-" * 50)
+                # Add a separator between conversations for clarity
+                print("\n" + "-" * 50)
 
-            # Generate response
-            spinner_task = asyncio.create_task(spinner())
-            try:
-                await llm.generate(
-                    message=user_input,
-                    request_params=RequestParams(
-                        max_iterations=25,
-                        maxTokens=15000,
-                    ),
-                    on_message=on_message_callback,
-                    on_tool_call=on_tool_call_callback,
-                    on_tool_result=on_tool_result_callback,
-                )
-            finally:
-                spinner_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await spinner_task
+                # Generate response
+                spinner_task = asyncio.create_task(spinner())
+                try:
+                    await llm.generate(
+                        message=user_input,
+                        request_params=RequestParams(
+                            max_iterations=25,
+                            maxTokens=15000,
+                        ),
+                        on_message=on_message_callback,
+                        on_tool_call=on_tool_call_callback,
+                        on_tool_result=on_tool_result_callback,
+                    )
+                finally:
+                    spinner_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await spinner_task
 
-            # Add a separator after the response
-            print("\n" + "-" * 50)
+                # Add a separator after the response
+                print("\n" + "-" * 50)
 
 
 if __name__ == "__main__":
